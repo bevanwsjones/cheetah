@@ -4,5 +4,5 @@
 
 TEST_CASE("concurrent_queue compiles", "[concurrent_queue]")
 {
-    cheetah::concurrent_queue<int> queue;
+    cheetah::ConcurrentQueue<int> queue;
 }
