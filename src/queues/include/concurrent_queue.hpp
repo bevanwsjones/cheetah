@@ -17,25 +17,24 @@ class ConcurrentQueue
     ConcurrentQueue() = default;
     ~ConcurrentQueue() = default;
 
-
     void push(const T& value) {
-        std::unique_lock lg(mut_que);
+        std::lock_guard lg(mut_que);
         // assert not done
-        queue.push_back(value);
+        queue.push(value);
         cv_lock.notify_one();        
     };
 
     void push(const std::vector<T>& value){
-        std::unique_lock lg(mut_que);
+        std::lock_guard lg(mut_que);
         // assert not done
         for(const auto& val : value){
-            queue.push_back(val);
+            queue.push(val);
         }
         cv_lock.notify_one();
     };
 
     void set_done() {
-        std::scoped_lock lg(mut_que);
+        std::lock_guard lg(mut_que);
         done = true;
         cv_lock.notify_all();
     }
@@ -45,7 +44,7 @@ class ConcurrentQueue
         cv_lock.wait(lg, [this] { return !queue.empty() | done; });
         if (!queue.empty()) [[likely]] {
             const T value = queue.front();
-            queue.pop_front();
+            queue.pop();
             return value;
         }
         return std::nullopt;
@@ -54,7 +53,7 @@ class ConcurrentQueue
     private:
 
     bool done{false};
-    std::deque<T> queue;
+    std::queue<T> queue;
     std::mutex mut_que;
     std::condition_variable cv_lock;
     
