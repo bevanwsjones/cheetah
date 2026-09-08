@@ -2,6 +2,7 @@ find_package(Threads REQUIRED)
 
 add_library(queues
     src/concurrent_queue.cpp
+    src/shrd_mem_ring_queue.cpp
 )
 
 target_include_directories(queues
