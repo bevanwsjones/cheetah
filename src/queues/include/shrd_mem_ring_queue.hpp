@@ -37,10 +37,12 @@ struct QProducer{
     void push(std::span<std::byte> buff){
         const uint32_t payload_size = sizeof(uint32_t) + buff.size();
                 
-        if((next_element + payload_size) < queue->buffer.size()) [[likely]] {
+        if((next_element + payload_size) < (queue->buffer.size() - sizeof(uint32_t))) [[likely]] {
             current_pos += payload_size;
         }
         else {
+            std::size_t zero_size = 0;
+            std::memcpy(&queue->buffer[next_element], &zero_size, sizeof(uint32_t));
             next_element = 0;
             current_pos = payload_size;
         }
@@ -62,22 +64,25 @@ struct QConsumer{
 
     // wrap around?
     uint32_t try_read(std::span<std::byte> buff){
-        const std::size_t read_pos = queue->read_pos.load(std::memory_order::acquire);
-        if(next_element == read_pos)
-            return 0;
 
-        if(next_element > read_pos) [[unlikely]] // buffer wrapped.
-            next_element = 0;
+        if(next_element == queue->read_pos.load(std::memory_order::acquire))
+            return 0;
 
         uint32_t size;
         std::memcpy(&size, &queue->buffer[next_element], sizeof(uint32_t)); 
 
-        // error check with writer pos?
+        if(!size) { // buffer wrapped, reset ring
+            next_element = 0;
+            std::memcpy(&size, &queue->buffer[next_element], sizeof(uint32_t)); 
+        }
 
-        std::memcpy(buff.data(), &queue->buffer[next_element + sizeof(uint32_t)], size); 
+        // error check with writer pos?
+        std::memcpy(buff.data(), &queue->buffer[next_element + sizeof(uint32_t)], size - sizeof(uint32_t)); 
 
         int payload_size = sizeof(uint32_t) + size; 
         next_element += payload_size;
+
+        return payload_size;
     }
 
 };
