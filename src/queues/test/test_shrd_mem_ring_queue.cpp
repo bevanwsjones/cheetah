@@ -69,5 +69,60 @@ TEST_CASE("single producer-consumer", "[shared_memory_ring_queue]")
     for(int ii = 0; ii < producer_buffer_int.size(); ++ii){
         REQUIRE(producer_buffer_int[ii] ==  consumer_buffer_int[ii]);
     } 
+}
 
+
+TEST_CASE("single producer-consumer wrapping", "[shared_memory_ring_queue]"){}
+
+TEST_CASE("single producer multiple consumer", "[shared_memory_ring_queue]")
+{   
+    const int no_cons = 4;
+    cheetah::ShrdMemeRingQueue queue;
+    std::vector<double> producer_buffer_fl({10, 20, 30, 40});
+    std::vector<std::vector<double> > consumer_buffer_fl(no_cons);
+    std::vector<int> producer_buffer_int({10, 20, 30, 40});
+    std::vector< std::vector<int> > consumer_buffer_int(no_cons);
+    
+    std::thread producer_fl([&](){produce_values<double>(&queue, producer_buffer_fl);});
+    std::vector<std::thread> consumer_fl(no_cons);
+    
+    for(int i_con = 0; i_con < no_cons; ++i_con){
+        consumer_fl[i_con] = std::thread([&, i_con](){
+            consume_values<double>(&queue, consumer_buffer_fl[i_con]);
+        });
+    }
+
+    producer_fl.join();
+    for(int i_con = 0; i_con < no_cons; ++i_con){
+        consumer_fl[i_con].join();
+    }
+      
+    for(int i_con = 0; i_con < no_cons; ++i_con){
+        REQUIRE(producer_buffer_fl.size() == consumer_buffer_fl[i_con].size());
+        for(int ii = 0; ii < producer_buffer_fl.size(); ++ii){
+            REQUIRE(producer_buffer_fl[ii] ==  consumer_buffer_fl[i_con][ii]);
+        }
+    }
+
+    std::thread producer_int([&](){produce_values<int>(&queue, producer_buffer_int);});
+    std::vector<std::thread> consumer_int(no_cons);
+    
+    for(int i_con = 0; i_con < no_cons; ++i_con) {
+        consumer_int[i_con] = std::thread([&, i_con](){
+            consume_values<int>(&queue, consumer_buffer_int[i_con]);
+        }); 
+    }
+
+    producer_int.join();
+
+    for(int i_con = 0; i_con < no_cons; ++i_con) {
+        consumer_int[i_con].join();
+    }    
+
+    for(int i_con = 0; i_con < no_cons; ++i_con) {
+        REQUIRE(producer_buffer_int.size() == consumer_buffer_int[i_con].size());
+        for(int ii = 0; ii < producer_buffer_int.size(); ++ii){
+            REQUIRE(producer_buffer_int[ii] ==  consumer_buffer_int[i_con][ii]);
+        } 
+    }
 }
