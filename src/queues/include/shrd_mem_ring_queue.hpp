@@ -7,12 +7,15 @@
 #include <cstring>
 #include <new>
 #include <span>
+#include <numeric>
 
 
 namespace cheetah
 {
 
-constexpr std::size_t buff_size = 8*100; // size in bytes
+constexpr std::size_t buff_size = 100; // size in bytes
+constexpr std::uint32_t wrap_sentinel = 0; 
+constexpr std::uint32_t stop_sentinel = std::numeric_limits<std::uint32_t>::max(); 
 
 #ifdef __cpp_lib_hardware_interference_size
 constexpr std::size_t cache_line = std::hardware_destructive_interference_size;
@@ -45,8 +48,7 @@ struct QProducer{
             current_pos += payload_size;
         }
         else {
-            std::uint32_t zero_size = 0;
-            std::memcpy(&queue->buffer[next_element], &zero_size, sizeof(uint32_t));
+            std::memcpy(&queue->buffer[next_element], &wrap_sentinel, sizeof(uint32_t));
             next_element = 0;
             current_pos = payload_size;
         }
@@ -58,26 +60,49 @@ struct QProducer{
         queue->read_pos.store(current_pos, std::memory_order::release);
         next_element += payload_size;       
     }
+
+    void stop_procuding(){
+        const uint32_t payload_size = sizeof(stop_sentinel);
+        if((next_element + payload_size) < (queue->buffer.size() - sizeof(uint32_t))) [[likely]] {
+            current_pos += payload_size;
+        }
+        else {
+            std::memcpy(&queue->buffer[next_element], &wrap_sentinel, sizeof(uint32_t));
+            next_element = 0;
+            current_pos = payload_size;
+        }
+
+        queue->write_pos.store(current_pos, std::memory_order::release); 
+        std::memcpy(&queue->buffer[next_element], &stop_sentinel, sizeof(uint32_t));
+        queue->read_pos.store(current_pos, std::memory_order::release);
+        next_element += payload_size;  
+    }
 };
 
 struct QConsumer{
 
     ShrdMemeRingQueue* queue;
+    bool queue_running{true};
     std::size_t current_pos{0};
     std::size_t next_element{0};
 
     // wrap around?
     uint32_t try_read(std::span<std::byte> buff){
 
-        if(next_element == queue->read_pos.load(std::memory_order::acquire))
+        if(!queue_running || next_element == queue->read_pos.load(std::memory_order::acquire))
             return 0;
 
         uint32_t payload_size;
         std::memcpy(&payload_size, &queue->buffer[next_element], sizeof(uint32_t)); 
 
-        if(!payload_size) { // buffer wrapped, reset ring
+        if(wrap_sentinel == payload_size) [[unlikely]] { // buffer wrapped, reset ring
             next_element = 0;
             std::memcpy(&payload_size, &queue->buffer[next_element], sizeof(uint32_t)); 
+        }
+
+        if(stop_sentinel == payload_size) [[unlikely]] { // we must stop
+            queue_running = false;
+            return 0;
         }
 
         // error check with writer pos?
@@ -89,6 +114,9 @@ struct QConsumer{
         return size;
     }
 
+    inline bool is_running() const {
+        return queue_running;
+    }
 };
 
 }// cheetah
