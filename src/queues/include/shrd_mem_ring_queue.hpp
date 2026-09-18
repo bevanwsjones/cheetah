@@ -8,6 +8,10 @@
 #include <new>
 #include <span>
 
+
+namespace cheetah
+{
+
 constexpr std::size_t buff_size = 8*100; // size in bytes
 
 #ifdef __cpp_lib_hardware_interference_size
@@ -86,3 +90,5 @@ struct QConsumer{
     }
 
 };
+
+}// cheetah
