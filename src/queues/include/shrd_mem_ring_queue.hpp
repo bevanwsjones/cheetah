@@ -41,7 +41,7 @@ struct QProducer{
             current_pos += payload_size;
         }
         else {
-            std::size_t zero_size = 0;
+            std::uint32_t zero_size = 0;
             std::memcpy(&queue->buffer[next_element], &zero_size, sizeof(uint32_t));
             next_element = 0;
             current_pos = payload_size;
@@ -68,21 +68,21 @@ struct QConsumer{
         if(next_element == queue->read_pos.load(std::memory_order::acquire))
             return 0;
 
-        uint32_t size;
-        std::memcpy(&size, &queue->buffer[next_element], sizeof(uint32_t)); 
+        uint32_t payload_size;
+        std::memcpy(&payload_size, &queue->buffer[next_element], sizeof(uint32_t)); 
 
-        if(!size) { // buffer wrapped, reset ring
+        if(!payload_size) { // buffer wrapped, reset ring
             next_element = 0;
-            std::memcpy(&size, &queue->buffer[next_element], sizeof(uint32_t)); 
+            std::memcpy(&payload_size, &queue->buffer[next_element], sizeof(uint32_t)); 
         }
 
         // error check with writer pos?
-        std::memcpy(buff.data(), &queue->buffer[next_element + sizeof(uint32_t)], size - sizeof(uint32_t)); 
+        const uint32_t size = payload_size - sizeof(uint32_t);
+        std::memcpy(buff.data(), &queue->buffer[next_element + sizeof(uint32_t)], size); 
 
-        int payload_size = sizeof(uint32_t) + size; 
         next_element += payload_size;
 
-        return payload_size;
+        return size;
     }
 
 };
