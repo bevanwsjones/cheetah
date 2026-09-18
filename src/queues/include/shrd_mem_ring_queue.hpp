@@ -25,9 +25,9 @@ struct ShrdMemeRingQueue{
     ~ShrdMemeRingQueue() = default;
 
     std::atomic<std::size_t> write_pos;
-    char pad [cache_line - sizeof(std::atomic<std::size_t>)];
+    char pad1 [cache_line - sizeof(std::atomic<std::size_t>)];
     std::atomic<std::size_t> read_pos;
-    char pad [cache_line - sizeof(std::atomic<std::size_t>)];
+    char pad2 [cache_line - sizeof(std::atomic<std::size_t>)];
     std::array<std::byte, buff_size> buffer;
 };
 
@@ -40,7 +40,7 @@ struct QProducer{
     // wrap around?
     void push(std::span<std::byte> buff){
         const uint32_t payload_size = sizeof(uint32_t) + buff.size();
-                
+    
         if((next_element + payload_size) < (queue->buffer.size() - sizeof(uint32_t))) [[likely]] {
             current_pos += payload_size;
         }
@@ -56,7 +56,7 @@ struct QProducer{
         std::memcpy(&queue->buffer[next_element + sizeof(uint32_t)], buff.data(), buff.size());
 
         queue->read_pos.store(current_pos, std::memory_order::release);
-        next_element += payload_size;
+        next_element += payload_size;       
     }
 };
 
