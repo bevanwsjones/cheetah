@@ -6,28 +6,37 @@
 #include <string>
 #include <iostream>
 
-void produce_values(cheetah::ShrdMemeRingQueue* queue) {
+template<typename T> 
+void produce_values(cheetah::ShrdMemeRingQueue* queue, std::span<T> buffer) {
     cheetah::QProducer producer;
     producer.queue = queue;
-    double value = 10;
-    std::vector<std::byte> buffer(sizeof(double));
-    for(int ii = 0; ii < buffer.size(); ++ii) {
-        buffer[ii] = *(reinterpret_cast<std::byte*>(&value) + ii*sizeof(std::byte));
+    
+    std::vector<std::byte> byte_buffer(buffer.size()*sizeof(buffer.front()));
+    for(int ii = 0; ii < byte_buffer.size(); ++ii) {
+        byte_buffer[ii] = *(reinterpret_cast<std::byte*>(buffer.data()) + ii*sizeof(std::byte));
     };   
-    producer.push({buffer});
+
+    producer.push({byte_buffer});
+    producer.stop_procuding();
 };
 
-void consume_values(cheetah::ShrdMemeRingQueue* queue) {
+template<typename T> 
+void consume_values(cheetah::ShrdMemeRingQueue* queue, std::vector<T>& buffer) {
     
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // give the producer a chance
     cheetah::QConsumer consumer;
     consumer.queue = queue;
 
-    std::vector<std::byte> buffer(sizeof(double));
-    
-    consumer.try_read(buffer);
-
-    std::cout<<"Got: "<<*reinterpret_cast<double*>(buffer.data());
+    std::vector<std::byte> byte_buffer(cheetah::buff_size); 
+    while(consumer.is_running()){
+        auto size = consumer.try_read(byte_buffer);
+        
+        if(size != 0) {
+            for(int i_elem = 0; i_elem < size/sizeof(T); ++i_elem) {
+                buffer.push_back(*reinterpret_cast<T*>(byte_buffer.data() + i_elem*sizeof(T)));
+            }
+        }
+    }
 };
 
 // Note this is a general test - due to unit test limitations of multi-process 
@@ -35,13 +44,30 @@ void consume_values(cheetah::ShrdMemeRingQueue* queue) {
 
 TEST_CASE("single producer-consumer", "[shared_memory_ring_queue]")
 {
-
     cheetah::ShrdMemeRingQueue queue;
-    std::thread producer(produce_values, &queue);
-    std::thread consumer(consume_values, &queue); 
-
-    producer.join();
-    consumer.join();
+    std::vector<double> producer_buffer_fl({10, 20, 30, 40});
+    std::vector<double> consumer_buffer_fl;
+    std::vector<int> producer_buffer_int({10, 20, 30, 40});
+    std::vector<int> consumer_buffer_int;
     
-    std::cout<<std::endl;
+    std::thread producer_fl([&](){produce_values<double>(&queue, producer_buffer_fl);});
+    std::thread consumer_fl([&](){consume_values<double>(&queue, consumer_buffer_fl);}); 
+    producer_fl.join();
+    consumer_fl.join();
+       
+    REQUIRE(producer_buffer_fl.size() == consumer_buffer_fl.size());
+    for(int ii = 0; ii < producer_buffer_fl.size(); ++ii){
+        REQUIRE(producer_buffer_fl[ii] ==  consumer_buffer_fl[ii]);
+    }
+
+    std::thread producer_int([&](){produce_values<int>(&queue, producer_buffer_int);});
+    std::thread consumer_int([&](){consume_values<int>(&queue, consumer_buffer_int);}); 
+    producer_int.join();
+    consumer_int.join();
+
+    REQUIRE(producer_buffer_int.size() == consumer_buffer_int.size());
+    for(int ii = 0; ii < producer_buffer_int.size(); ++ii){
+        REQUIRE(producer_buffer_int[ii] ==  consumer_buffer_int[ii]);
+    } 
+
 }
