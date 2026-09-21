@@ -7,23 +7,26 @@
 #include <iostream>
 
 template<typename T> 
-void produce_values(cheetah::ShrdMemeRingQueue* queue, std::span<T> buffer) {
+void produce_values(cheetah::ShrdMemeRingQueue* queue, std::span<T> buffer, std::size_t no_times = 1) {
     cheetah::QProducer producer;
     producer.queue = queue;
-    
+
     std::vector<std::byte> byte_buffer(buffer.size()*sizeof(buffer.front()));
     for(int ii = 0; ii < byte_buffer.size(); ++ii) {
         byte_buffer[ii] = *(reinterpret_cast<std::byte*>(buffer.data()) + ii*sizeof(std::byte));
     };   
 
-    producer.push({byte_buffer});
+    for(std::size_t i_time = 0; i_time < no_times; ++i_time) {
+        producer.push({byte_buffer});
+        std::this_thread::sleep_for(std::chrono::microseconds(5)); // slow it down a little to give thread reads a chance to pull from the buffer.
+    }
+        
     producer.stop_procuding();
 };
 
 template<typename T> 
 void consume_values(cheetah::ShrdMemeRingQueue* queue, std::vector<T>& buffer) {
     
-    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // give the producer a chance
     cheetah::QConsumer consumer;
     consumer.queue = queue;
 
@@ -71,8 +74,42 @@ TEST_CASE("single producer-consumer", "[shared_memory_ring_queue]")
     } 
 }
 
+TEST_CASE("single producer-consumer wrapping", "[shared_memory_ring_queue]")
+{
+    cheetah::ShrdMemeRingQueue queue;
+    std::vector<double> producer_buffer_fl({10, 20, 30, 40});
+    std::vector<double> consumer_buffer_fl;
+    std::vector<int> producer_buffer_int({10, 20, 30, 40});
+    std::vector<int> consumer_buffer_int;
+    
+    std::size_t relative_size = static_cast<std::size_t>(cheetah::buff_size/sizeof(double)/producer_buffer_fl.size());
+    REQUIRE(relative_size > 1); // make sure the buffer is big enough.
+    std::size_t no_times = static_cast<std::size_t>(relative_size*1.5);
 
-TEST_CASE("single producer-consumer wrapping", "[shared_memory_ring_queue]"){}
+    std::thread producer_fl([&](){produce_values<double>(&queue, producer_buffer_fl, no_times);});
+    std::thread consumer_fl([&](){consume_values<double>(&queue, consumer_buffer_fl);}); 
+    producer_fl.join();
+    consumer_fl.join();
+       
+    REQUIRE(no_times*producer_buffer_fl.size() == consumer_buffer_fl.size()); // should have filled the buffer
+    for(int ii = 0; ii < producer_buffer_fl.size(); ++ii){
+        REQUIRE(producer_buffer_fl[ii%producer_buffer_fl.size()] ==  consumer_buffer_fl[ii]);
+    }
+
+    relative_size = static_cast<std::size_t>(cheetah::buff_size/sizeof(int)/producer_buffer_int.size());
+    REQUIRE(relative_size > 1); // make sure the buffer is big enough.
+    no_times = static_cast<std::size_t>(relative_size*1.5);
+
+    std::thread producer_int([&](){produce_values<int>(&queue, producer_buffer_int, no_times);});
+    std::thread consumer_int([&](){consume_values<int>(&queue, consumer_buffer_int);}); 
+    producer_int.join();
+    consumer_int.join();
+
+    REQUIRE(no_times*producer_buffer_int.size() == consumer_buffer_int.size());
+    for(int ii = 0; ii < producer_buffer_int.size(); ++ii){
+        REQUIRE(producer_buffer_int[ii%producer_buffer_int.size()] ==  consumer_buffer_int[ii]);
+    } 
+}
 
 TEST_CASE("single producer multiple consumer", "[shared_memory_ring_queue]")
 {   
