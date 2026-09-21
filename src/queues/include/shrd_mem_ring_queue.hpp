@@ -40,7 +40,6 @@ struct QProducer{
     std::size_t current_pos{0};
     std::size_t next_element{0};
 
-    // wrap around?
     void push(std::span<std::byte> buff){
         const uint32_t payload_size = sizeof(uint32_t) + buff.size();
     
@@ -94,7 +93,7 @@ struct QConsumer{
 
         uint32_t payload_size;
         std::memcpy(&payload_size, &queue->buffer[next_element], sizeof(uint32_t)); 
-
+        
         if(wrap_sentinel == payload_size) [[unlikely]] { // buffer wrapped, reset ring
             next_element = 0;
             std::memcpy(&payload_size, &queue->buffer[next_element], sizeof(uint32_t)); 
@@ -110,7 +109,6 @@ struct QConsumer{
         std::memcpy(buff.data(), &queue->buffer[next_element + sizeof(uint32_t)], size); 
 
         next_element += payload_size;
-
         return size;
     }
 
