@@ -20,8 +20,8 @@ class SharedMemoryServer {
     SharedMemoryServer() {create()};
     ~SharedMemoryServer() {if(data) destroy();};
 
-    SharedMemoryClient(const SharedMemoryClient&) = delete;
-    SharedMemoryClient& operator=(const SharedMemoryClient&) = delete; 
+    SharedMemoryServer(const SharedMemoryServer&) = delete;
+    SharedMemoryServer& operator=(const SharedMemoryServer&) = delete; 
 
     T* operator->() {return &data->data;}
     const T* operator->() const {return &data->data;}
@@ -45,10 +45,29 @@ class SharedMemoryServer {
 
 template<typename T>
 class SharedMemoryClient {
-    public:
-    SharedMemoryClient() = default;
-    ~SharedMemoryClient() = default;
 
+    public:
+    SharedMemoryClient() {connect()};
+    ~SharedMemoryClient() {if(data) disconnect();};
+
+    SharedMemoryClient(const SharedMemoryClient&) = delete;
+    SharedMemoryClient& operator=(const SharedMemoryClient&) = delete; 
+
+    T* operator->() {return &data->data;}
+    const T* operator->() const {return &data->data;}
+    
+    T& operator*() {return data->data};
+    const T& operator*() {return data->data;}
+    
+    T* get() { return data ? &data->data : nullptr; }
+    const T* get() {return data ? &data->data: nullptr; }
+
+    explicit operator bool() { return data != nullptr; }
+
+    bool is_ready() {return data && data->ready.load(std::memory_order::memory_order_acquire); }
+
+    private: 
+    
     void connect();
     void disconnect();
 
