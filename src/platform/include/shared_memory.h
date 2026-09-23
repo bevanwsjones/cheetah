@@ -10,10 +10,14 @@
 #include <utility>
 #include <iostream>
 
+namespace cheetah::platform {
+
+namespace details {
 std::optional<void*> create_shared_memory(const char* name, std::size_t size);
 bool destroy_shared_memory(void* data, const char* name, std::size_t size);
 std::optional<void*> connect_shared_memory(const char* name, std::size_t size);
 bool disconnect_shared_memory(const char* name, std::size_t size);
+}//details
 
 template<typename T>
 struct SharedMemoryData {
@@ -63,7 +67,7 @@ class SharedMemoryServer {
     private:
     bool create(std::string_view name) {
         shrd_mem_name = name;
-        auto shrd_mem = create_shared_memory(shrd_mem_name.c_str(), sizeof(SharedMemoryData<T>));
+        auto shrd_mem = details::create_shared_memory(shrd_mem_name.c_str(), sizeof(SharedMemoryData<T>));
         if(!shrd_mem) return false;
         data = new (shrd_mem.value()) SharedMemoryData<T>();
         data->valid.store(true, std::memory_order_release);
@@ -87,7 +91,7 @@ class SharedMemoryServer {
         }
 
         data->~SharedMemoryData<T>();       // explicit dtor, since placement-new was used
-        destroy_shared_memory(data, shrd_mem_name, sizeof(SharedMemoryData<T>));
+        details::destroy_shared_memory(data, shrd_mem_name, sizeof(SharedMemoryData<T>));
     };
 
     SharedMemoryData<T>* data{nullptr};
@@ -125,3 +129,5 @@ class SharedMemoryClient {
 
     SharedMemoryData<T>* data;
 };
+
+} //cheetah::platform
