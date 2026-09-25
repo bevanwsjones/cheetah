@@ -75,7 +75,7 @@ class SharedMemoryServer {
     }
 
     void destroy(){
-        data->valid.store(true, std::memory_order_release);
+        data->valid.store(false, std::memory_order_release);
         uint32_t count = data->clients.load(std::memory_order_acquire);
         if(count) {
             std::cout<<"\nWaiting for "<<count<<" clients to release shared memory: "<<shrd_mem_name<<", waiting seconds.";
@@ -103,31 +103,60 @@ template<typename T>
 class SharedMemoryClient {
 
     public:
-    SharedMemoryClient() {connect()};
+    SharedMemoryClient() = delete;
+    explicit SharedMemoryClient(const std::string_view name) {connect(name);}
     ~SharedMemoryClient() {if(data) disconnect();};
 
     SharedMemoryClient(const SharedMemoryClient&) = delete;
     SharedMemoryClient& operator=(const SharedMemoryClient&) = delete; 
 
+    SharedMemoryClient(SharedMemoryClient&& other) noexcept 
+    : data(std::exchange(other.data, nullptr)), shrd_mem_name(std::move(other.shrd_mem_name)) {}
+    SharedMemoryClient& operator=(SharedMemoryClient&& other) noexcept {
+        if(this != &other) {
+            disconnect();
+            this->data = std::exchange(other.shrd_mem_name, nullptr);
+            this->shrd_mem_name = std::move(other.shrd_mem_name);
+        }
+        return *this;
+    }
+
+
     T* operator->() {return &data->data;}
     const T* operator->() const {return &data->data;}
     
     T& operator*() {return data->data};
-    const T& operator*() {return data->data;}
+    const T& operator*() const {return data->data;}
     
     T* get() { return data ? &data->data : nullptr; }
-    const T* get() {return data ? &data->data: nullptr; }
+    const T* get() const {return data ? &data->data: nullptr; }
 
-    explicit operator bool() { return data != nullptr; }
+    explicit operator bool() const { return data != nullptr; }
 
-    bool is_ready() {return data && data->valid.load(std::memory_order::memory_order_acquire); }
+    bool is_ready() const {return data && data->valid.load(std::memory_order::memory_order_acquire); }
 
     private: 
     
-    void connect();
-    void disconnect();
+    void connect(const std::string_view name){
+        shrd_mem_name = name;
+        auto shrd_mem = details::connect_shared_memory(shrd_mem_name.c_str(), sizeof(SharedMemoryData<T>));
+        if(!shrd_mem) return false;
+        data = new (shrd_mem.value()) SharedMemoryData<T>();
+        return true;
+    };
+
+    void disconnect(){}{
+        data->clients.store(std::memory_order_acquire);
+        const bool result = details::disconnect_shared_memory(data, shrd_mem_name, sizeof(SharedMemoryData<T>));
+        if(result){
+            std::cerr<<"\nfailed to disconnect from "<<shrd_mem_name;
+        }
+        data = nullptr;
+        shrd_mem_name = "";
+    };
 
     SharedMemoryData<T>* data;
+    std::string shrd_mem_name;
 };
 
 } //cheetah::platform
