@@ -17,11 +17,23 @@ enable_testing()
 
 include(FetchContent)
 FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.7.1
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.15.2
 )
-FetchContent_MakeAvailable(Catch2)
-list(APPEND CMAKE_MODULE_PATH "${catch2_SOURCE_DIR}/extras")
+set(BUILD_GMOCK ON CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+include(GoogleTest)
+
+# Project-wide test helper: builds a test executable linked against gtest + gmock
+# (with main) and registers its tests with CTest.
+#   cheetah_add_test(<name> SOURCES <files...> [LIBS <targets...>])
+function(cheetah_add_test name)
+    cmake_parse_arguments(ARG "" "" "SOURCES;LIBS" ${ARGN})
+    add_executable(${name} ${ARG_SOURCES})
+    target_link_libraries(${name} PRIVATE ${ARG_LIBS} GTest::gtest GTest::gmock GTest::gmock_main)
+    gtest_discover_tests(${name})
+endfunction()
 
 add_subdirectory(src)
