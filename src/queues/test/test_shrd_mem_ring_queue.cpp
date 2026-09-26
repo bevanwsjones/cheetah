@@ -1,6 +1,6 @@
 #include "shrd_mem_ring_queue.hpp"
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 #include <thread>
 #include <vector>
 #include <string>
@@ -45,7 +45,7 @@ void consume_values(cheetah::ShrdMemeRingQueue* queue, std::vector<T>& buffer) {
 // Note this is a general test - due to unit test limitations of multi-process 
 // applications we multi-thread it, which is not 100% but it will do for now.
 
-TEST_CASE("single producer-consumer", "[shared_memory_ring_queue]")
+TEST(ShrdMemRingQueue, SingleProducerConsumer)
 {
     cheetah::ShrdMemeRingQueue queue;
     std::vector<double> producer_buffer_fl({10, 20, 30, 40});
@@ -58,9 +58,9 @@ TEST_CASE("single producer-consumer", "[shared_memory_ring_queue]")
     producer_fl.join();
     consumer_fl.join();
        
-    REQUIRE(producer_buffer_fl.size() == consumer_buffer_fl.size());
+    ASSERT_EQ(producer_buffer_fl.size(), consumer_buffer_fl.size());
     for(int ii = 0; ii < producer_buffer_fl.size(); ++ii){
-        REQUIRE(producer_buffer_fl[ii] ==  consumer_buffer_fl[ii]);
+        ASSERT_EQ(producer_buffer_fl[ii], consumer_buffer_fl[ii]);
     }
 
     std::thread producer_int([&](){produce_values<int>(&queue, producer_buffer_int);});
@@ -68,13 +68,13 @@ TEST_CASE("single producer-consumer", "[shared_memory_ring_queue]")
     producer_int.join();
     consumer_int.join();
 
-    REQUIRE(producer_buffer_int.size() == consumer_buffer_int.size());
+    ASSERT_EQ(producer_buffer_int.size(), consumer_buffer_int.size());
     for(int ii = 0; ii < producer_buffer_int.size(); ++ii){
-        REQUIRE(producer_buffer_int[ii] ==  consumer_buffer_int[ii]);
+        ASSERT_EQ(producer_buffer_int[ii], consumer_buffer_int[ii]);
     } 
 }
 
-TEST_CASE("single producer-consumer wrapping", "[shared_memory_ring_queue]")
+TEST(ShrdMemRingQueue, SingleProducerConsumerWrapping)
 {
     cheetah::ShrdMemeRingQueue queue;
     std::vector<double> producer_buffer_fl({10, 20, 30, 40});
@@ -83,7 +83,7 @@ TEST_CASE("single producer-consumer wrapping", "[shared_memory_ring_queue]")
     std::vector<int> consumer_buffer_int;
     
     std::size_t relative_size = static_cast<std::size_t>(cheetah::buff_size/sizeof(double)/producer_buffer_fl.size());
-    REQUIRE(relative_size > 1); // make sure the buffer is big enough.
+    ASSERT_GT(relative_size, 1u); // make sure the buffer is big enough.
     std::size_t no_times = static_cast<std::size_t>(relative_size*1.5);
 
     std::thread producer_fl([&](){produce_values<double>(&queue, producer_buffer_fl, no_times);});
@@ -91,13 +91,13 @@ TEST_CASE("single producer-consumer wrapping", "[shared_memory_ring_queue]")
     producer_fl.join();
     consumer_fl.join();
        
-    REQUIRE(no_times*producer_buffer_fl.size() == consumer_buffer_fl.size()); // should have filled the buffer
+    ASSERT_EQ(no_times*producer_buffer_fl.size(), consumer_buffer_fl.size()); // should have filled the buffer
     for(int ii = 0; ii < producer_buffer_fl.size(); ++ii){
-        REQUIRE(producer_buffer_fl[ii%producer_buffer_fl.size()] ==  consumer_buffer_fl[ii]);
+        ASSERT_EQ(producer_buffer_fl[ii%producer_buffer_fl.size()], consumer_buffer_fl[ii]);
     }
 
     relative_size = static_cast<std::size_t>(cheetah::buff_size/sizeof(int)/producer_buffer_int.size());
-    REQUIRE(relative_size > 1); // make sure the buffer is big enough.
+    ASSERT_GT(relative_size, 1u); // make sure the buffer is big enough.
     no_times = static_cast<std::size_t>(relative_size*1.5);
 
     std::thread producer_int([&](){produce_values<int>(&queue, producer_buffer_int, no_times);});
@@ -105,13 +105,13 @@ TEST_CASE("single producer-consumer wrapping", "[shared_memory_ring_queue]")
     producer_int.join();
     consumer_int.join();
 
-    REQUIRE(no_times*producer_buffer_int.size() == consumer_buffer_int.size());
+    ASSERT_EQ(no_times*producer_buffer_int.size(), consumer_buffer_int.size());
     for(int ii = 0; ii < producer_buffer_int.size(); ++ii){
-        REQUIRE(producer_buffer_int[ii%producer_buffer_int.size()] ==  consumer_buffer_int[ii]);
+        ASSERT_EQ(producer_buffer_int[ii%producer_buffer_int.size()], consumer_buffer_int[ii]);
     } 
 }
 
-TEST_CASE("single producer multiple consumer", "[shared_memory_ring_queue]")
+TEST(ShrdMemRingQueue, SingleProducerMultipleConsumer)
 {   
     const int no_cons = 4;
     cheetah::ShrdMemeRingQueue queue;
@@ -135,9 +135,9 @@ TEST_CASE("single producer multiple consumer", "[shared_memory_ring_queue]")
     }
       
     for(int i_con = 0; i_con < no_cons; ++i_con){
-        REQUIRE(producer_buffer_fl.size() == consumer_buffer_fl[i_con].size());
+        ASSERT_EQ(producer_buffer_fl.size(), consumer_buffer_fl[i_con].size());
         for(int ii = 0; ii < producer_buffer_fl.size(); ++ii){
-            REQUIRE(producer_buffer_fl[ii] ==  consumer_buffer_fl[i_con][ii]);
+            ASSERT_EQ(producer_buffer_fl[ii], consumer_buffer_fl[i_con][ii]);
         }
     }
 
@@ -157,9 +157,9 @@ TEST_CASE("single producer multiple consumer", "[shared_memory_ring_queue]")
     }    
 
     for(int i_con = 0; i_con < no_cons; ++i_con) {
-        REQUIRE(producer_buffer_int.size() == consumer_buffer_int[i_con].size());
+        ASSERT_EQ(producer_buffer_int.size(), consumer_buffer_int[i_con].size());
         for(int ii = 0; ii < producer_buffer_int.size(); ++ii){
-            REQUIRE(producer_buffer_int[ii] ==  consumer_buffer_int[i_con][ii]);
+            ASSERT_EQ(producer_buffer_int[ii], consumer_buffer_int[i_con][ii]);
         } 
     }
 }

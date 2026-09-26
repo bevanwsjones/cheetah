@@ -1,9 +1,10 @@
 #include "concurrent_queue.hpp"
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 #include <thread>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <iostream>
 
 void produce_values(cheetah::ConcurrentQueue<int>* queue){
@@ -35,7 +36,7 @@ void consume_values(cheetah::ConcurrentQueue<int>* queue){
 };
 
 
-TEST_CASE("concurrent_queue compiles", "[concurrent_queue]")
+TEST(ConcurrentQueue, Compiles)
 {
     cheetah::ConcurrentQueue<int> q;
     std::size_t no_prod = 4;
