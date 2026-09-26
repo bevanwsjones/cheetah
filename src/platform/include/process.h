@@ -9,7 +9,7 @@
 #include <thread>
 #include <optional>
 
-namespace cheetah::process{
+namespace cheetah::platform {
 
 using Envrionment = std::vector<std::pair<std::string, std::string> >;
 
@@ -93,5 +93,5 @@ class Process {
     static constexpr std::chrono::seconds wait_time{60}; 
 };
 
-}//cheetah::process
+}//cheetah::platform
 
