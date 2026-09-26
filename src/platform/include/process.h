@@ -8,6 +8,7 @@
 #include <utility>
 #include <thread>
 #include <optional>
+#include <filesystem>
 
 namespace cheetah::platform {
 
@@ -19,18 +20,18 @@ enum class ProcessStatus {
 
 struct ProcessHandle{
     uint32_t pid{0};
-    std::string name;
+    std::filesystem::path process_path;
 };
 
 namespace details {
-    std::optional<ProcessHandle> launch_proces(const std::vector<std::string>& args, const Envrionment& env);
+    std::optional<ProcessHandle> launch_proces(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env);
     bool kill_process(ProcessHandle& handle, bool force);
 }
 
 class Process {
     public:
     Process() = delete;
-    Process(const std::string& name, const std::vector<std::string>& args, const Envrionment& env) {}
+    Process(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env) {}
     ~Process() {
         if(process_status == ProcessStatus::running) {
             kill_process();
@@ -54,8 +55,8 @@ class Process {
     Process(Process&&) noexcept = default;
     Process& operator=(Process&&) noexcept = default;
 
-    bool launch_process(const std::string& name, const std::vector<std::string>& args, const Envrionment& env){
-        auto new_handle = details::launch_proces(args, env);
+    bool launch_process(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env){
+        auto new_handle = details::launch_proces(bin_path, args, env);
         
         if(new_handle) {
             handle = new_handle.value();

@@ -28,27 +28,26 @@ std::pair<std::vector<std::string>, std::vector<char*>> to_char_array(const Envr
     return {environ_concat, environ};
 };
 
-std::optional<ProcessHandle> launch_proces(const std::vector<std::string>& args, const Envrionment& env){
+std::optional<ProcessHandle> launch_proces(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env){
     ProcessHandle handle;
     int pid;
-    std::filesystem::path path;
     std::vector<char*> argv = to_char_array(args);
     auto [environ_stro, environ] = to_char_array(env);
 
     posix_spawnattr_t attr;
     posix_spawnattr_init(&attr);
 
-    int spawned_return = posix_spawn(&pid, path.c_str(), NULL, &attr, argv.data(), environ.data());
+    int spawned_return = posix_spawn(&pid, bin_path.c_str(), NULL, &attr, argv.data(), environ.data());
 
     // free argv and environ char**
 
     if(spawned_return == 0) {
-        std::cerr<<"Failed to spawn new process";
+        std::cerr<<"Failed to spawn new process: " + bin_path.string();
         return{};
     }
 
     handle.pid = static_cast<uint32_t>(pid);
-    handle.name = path.string(); 
+    handle.process_path = bin_path; 
     return {handle};
 }
 
