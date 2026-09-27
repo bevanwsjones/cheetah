@@ -1,4 +1,4 @@
-#include "shared_memory.h"
+#include "shared_memory.hpp"
 
 
 #include <sys/mman.h>
