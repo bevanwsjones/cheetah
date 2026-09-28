@@ -21,7 +21,6 @@ TEST(ProcessPosix, LaunchProcessNominal)
         child = std::make_unique<Process>(bin_path, args, env);
     }());
     
-    std::cout<<"\n"<<to_string(child->status())<<std::endl;
     child->kill();
     EXPECT_EQ(child->status(), ProcessStatus::exited);
 }

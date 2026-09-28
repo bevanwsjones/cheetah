@@ -18,32 +18,55 @@ enum class ProcessStatus {
     running, exited, killed, unknown
 };
 
+inline std::string to_string(const ProcessStatus& status) {
+    switch(status){
+        case ProcessStatus::running:
+            return "running";
+        case ProcessStatus::exited:
+            return "exited";
+        case ProcessStatus::killed:
+            return "killed";
+        case ProcessStatus::unknown:
+        default:
+            return "unknown";
+    }
+}
+
+struct ProcessState{
+    ProcessStatus status{ProcessStatus::unknown};
+    int exit_code{0};
+};
+
 struct ProcessHandle{
     uint32_t pid{0};
     std::filesystem::path process_path;
 };
 
 namespace details {
-    std::optional<ProcessHandle> launch_proces(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env);
-    bool kill_process(ProcessHandle& handle, bool force);
+    std::optional<ProcessHandle> launch(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env);
+    bool kill(const ProcessHandle& handle, bool force);
+    ProcessState get_state(const ProcessHandle& handle);
 }
 
 class Process {
     public:
     Process() = delete;
-    Process(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env) {}
+    Process(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env) {
+        launch(bin_path, args, env);
+    }
     ~Process() {
-        if(process_status == ProcessStatus::running) {
-            kill_process();
-            std::this_thread::sleep_for(std::chrono::seconds(1)); // give chance to die
-            if(process_status == ProcessStatus::running) { //did not die
+        
+        state = details::get_state(handle);       
+        if(state.status == ProcessStatus::running) {
+            kill();
+            if(state.status == ProcessStatus::running) { //did not die
                 // warn user
                 std::cerr<<"Waiting for process to terminate "; ///
                 std::this_thread::sleep_for(std::chrono::seconds(wait_time));
     
-                if(process_status == ProcessStatus::running) {
+                if(state.status == ProcessStatus::running) {
                     std::cerr<<"Waiting for terminate failed, killing"; ///
-                    kill_process(true);
+                    kill(true);
                 } //did not die
             }
         }
@@ -52,46 +75,62 @@ class Process {
     Process(Process&) = delete;
     Process& operator=(Process&) = delete;
 
-    Process(Process&&) noexcept = default;
-    Process& operator=(Process&&) noexcept = default;
+    Process(Process&& other) noexcept = default;
+    Process& operator=(Process&& other) noexcept {
+        if(this != &other){
+            kill(true);           
+            handle = std::exchange(other.handle, {});
+            state = std::exchange(other.state, {});
+        }
+        return *this;
+    };
 
-    bool launch_process(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env){
-        auto new_handle = details::launch_proces(bin_path, args, env);
+    bool launch(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env){
+        auto new_handle = details::launch(bin_path, args, env);
         
         if(!new_handle) {
-            std::cerr<<"Failed to launch process"; ///
+            std::cerr<<"Failed to launch process"; //
             return false;
         }
         
         handle = new_handle.value();
-        process_status = ProcessStatus::running;
-        return false;
+        state = details::get_state(handle);
+
+        return true;
 
     };
 
-    bool kill_process(bool force = false){
-        if(process_status != ProcessStatus::running) return true;
+    bool kill(bool force = false){
+        if(state.status != ProcessStatus::running) return true;
 
-        bool died = details::kill_process(handle, force);
+        bool died = details::kill(handle, force);
         if(died){
-            if(force) process_status = ProcessStatus::killed;
-            else process_status = ProcessStatus::exited;
+            std::this_thread::sleep_for(std::chrono::milliseconds(100)); // give chance to die        
+            state = details::get_state(handle);
             return true;
         }
         else {
-            std::cout<<"Failed to kill process"; // //
+            std::cout<<"Failed to kill process"; //
             return false;
         }
         return true;
     };
     
-    ProcessStatus status() const {return process_status;}
-    int exit_code() const {return process_exit_code; } 
+    ProcessStatus status() {
+        if(state.status != ProcessStatus::running) return state.status;
+        state = details::get_state(handle);
+        return state.status;
+    }
+
+    int exit_code() { 
+        if(state.status != ProcessStatus::running) return state.exit_code;
+        state = details::get_state(handle);
+        return state.exit_code;
+    } 
     
     private:
-    int process_exit_code{0}; // NEED TO GET EXIT CODE
     ProcessHandle handle;
-    ProcessStatus process_status{ProcessStatus::unknown};
+    ProcessState state;
     static constexpr std::chrono::seconds wait_time{60}; 
 };
 
