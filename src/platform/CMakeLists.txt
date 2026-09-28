@@ -1,7 +1,7 @@
 find_package(Threads REQUIRED)
 
 add_library(platform    
-    src/process.cpp
+    src/process_posix.cpp
     src/shared_memory_posix.cpp
 )
 
@@ -20,6 +20,6 @@ if(BUILD_TESTING)
 
     cheetah_add_test(process_test
         SOURCES test/test_process_posix.cpp
-        LIBS plaform
+        LIBS platform
     ) # Add test_binary dependency.
 endif()

@@ -58,13 +58,14 @@ class Process {
     bool launch_process(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env){
         auto new_handle = details::launch_proces(bin_path, args, env);
         
-        if(new_handle) {
-            handle = new_handle.value();
-            process_status = ProcessStatus::running;
-        }
-        else {
+        if(!new_handle) {
             std::cerr<<"Failed to launch process"; ///
+            return false;
         }
+        
+        handle = new_handle.value();
+        process_status = ProcessStatus::running;
+        return false;
 
     };
 

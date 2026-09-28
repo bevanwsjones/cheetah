@@ -42,7 +42,7 @@ class SharedMemoryServer {
 
     SharedMemoryServer(SharedMemoryServer&& other) noexcept 
     : data(std::exchange(other.data, nullptr)), shrd_mem_name(std::move(other.shrd_mem_name)) {};
-    SharedMemoryServer& operator=(SharedMemoryServer&&) noexcept {
+    SharedMemoryServer& operator=(SharedMemoryServer&& other) noexcept {
         if(this != &other) {
             destroy();
             this->data = std::exchange(other.data, nullptr);
@@ -125,7 +125,7 @@ class SharedMemoryClient {
     T* operator->() {return &data->data;}
     const T* operator->() const {return &data->data;}
     
-    T& operator*() {return data->data};
+    T& operator*() {return data->data;};
     const T& operator*() const {return data->data;}
     
     T* get() { return data ? &data->data : nullptr; }
@@ -133,11 +133,11 @@ class SharedMemoryClient {
 
     explicit operator bool() const { return data != nullptr; }
 
-    bool is_ready() const {return data && data->valid.load(std::memory_order::memory_order_acquire); }
+    bool is_ready() const {return data && data->valid.load(std::memory_order_acquire); }
 
     private: 
     
-    void connect(const std::string_view name){
+    bool connect(const std::string_view name){
         shrd_mem_name = name;
         auto shrd_mem = details::connect_shared_memory(shrd_mem_name.c_str(), sizeof(SharedMemoryData<T>));
         if(!shrd_mem) return false;
@@ -145,7 +145,7 @@ class SharedMemoryClient {
         return true;
     };
 
-    void disconnect(){}{
+    void disconnect() {
         data->clients.store(std::memory_order_acquire);
         const bool result = details::disconnect_shared_memory(data, shrd_mem_name, sizeof(SharedMemoryData<T>));
         if(result){
