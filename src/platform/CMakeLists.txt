@@ -15,11 +15,14 @@ target_link_libraries(platform
 
 target_compile_features(platform PUBLIC cxx_std_20)
 
-if(BUILD_TESTING)
-    add_executable(test_binary test/main_test_bin.cpp)
+if(${BUILD_TESTING})
+    add_executable(platform_test_binary test/platform_test_binary.cpp)
+    target_link_libraries(platform_test_binary PRIVATE cxxopts::cxxopts)
 
     cheetah_add_test(process_test
         SOURCES test/test_process_posix.cpp
         LIBS platform
-    ) # Add test_binary dependency.
+    )
+    add_dependencies(process_test platform_test_binary)
+
 endif()

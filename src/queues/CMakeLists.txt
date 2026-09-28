@@ -16,7 +16,7 @@ target_link_libraries(queues
 
 target_compile_features(queues PUBLIC cxx_std_20)
 
-if(BUILD_TESTING)
+if(${BUILD_TESTING})
     cheetah_add_test(queues_test
         SOURCES test/test_concurrent_queue.cpp
         LIBS queues
