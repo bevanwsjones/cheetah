@@ -54,17 +54,15 @@ class Process {
     Process(const std::filesystem::path& bin_path, const std::vector<std::string>& args, const Envrionment& env) {
         launch(bin_path, args, env);
     }
-    ~Process() {
-        
-        state = details::get_state(handle);       
-        if(state.status == ProcessStatus::running) {
+    ~Process() {        
+        if(status() == ProcessStatus::running) {
             kill();
-            if(state.status == ProcessStatus::running) { //did not die
+            if(status() == ProcessStatus::running) { //did not die
                 // warn user
                 std::cerr<<"Waiting for process to terminate "; ///
                 std::this_thread::sleep_for(std::chrono::seconds(wait_time));
     
-                if(state.status == ProcessStatus::running) {
+                if(status() == ProcessStatus::running) {
                     std::cerr<<"Waiting for terminate failed, killing"; ///
                     kill(true);
                 } //did not die

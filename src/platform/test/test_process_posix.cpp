@@ -22,7 +22,7 @@ TEST(ProcessPosix, LaunchProcessNominal)
     }());
     
     child->kill();
-    EXPECT_EQ(child->status(), ProcessStatus::exited);
+    EXPECT_EQ(child->status(), ProcessStatus::killed);
 }
 
 TEST(ProcessPosix, LaunchProcessBinPathDoesNotExist)

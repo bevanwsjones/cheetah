@@ -71,8 +71,8 @@ std::optional<ProcessHandle> launch(const std::filesystem::path& bin_path, const
     return {handle};
 }
 
-bool kill(const ProcessHandle& handle, bool force){
-    return true;
+bool kill(const ProcessHandle& handle, const bool force) {
+    return ::kill(static_cast<int>(handle.pid), force ? SIGKILL : SIGTERM) == 0;
 }
 
 ProcessState get_state(const ProcessHandle& handle){
